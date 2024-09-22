@@ -1,26 +1,27 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 
 namespace External_Sort
 {
     class ExternalSort
     {
         // Merge files using K-way merge
-        public static void MergeFiles(string outputFile, int k)
+        public static void MergeFiles(string outputFile, int k, int bufferSize = 1024 * 1024)
         {
             var minHeap = new SortedSet<(int Element, int Index)>(); // Heap to store the smallest elements
 
-            using (var outStream = new BufferedStream(new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None, 4096)))
+            using (var outStream = new BufferedStream(new FileStream(outputFile, FileMode.Create, FileAccess.Write, FileShare.None, bufferSize)))
             using (var writer = new StreamWriter(outStream))
             {
                 var readers = new StreamReader[k];
 
-                // Open input files in read mode with buffering
+                // Open input files in read mode with large buffering
                 for (int i = 0; i < k; i++)
                 {
-                    var fileStream = new FileStream(i.ToString(), FileMode.Open, FileAccess.Read, FileShare.Read, 4096);
-                    var bufferedStream = new BufferedStream(fileStream);
+                    var fileStream = new FileStream(i.ToString(), FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize);
+                    var bufferedStream = new BufferedStream(fileStream, bufferSize);
                     readers[i] = new StreamReader(bufferedStream);
 
                     string line = readers[i].ReadLine();
@@ -51,24 +52,24 @@ namespace External_Sort
                 }
 
                 // Delete temporary files after merging
-                for (int i = 0; i < k; i++)
+                Parallel.For(0, k, (i) =>
                 {
                     File.Delete(i.ToString());
-                }
+                });
             }
         }
 
         // Create initial runs and divide them among output files
-        public static void CreateInitialRuns(string inputFile, long runSizeBytes, int numWays)
+        public static void CreateInitialRuns(string inputFile, long runSizeBytes, int numWays, int bufferSize = 1024 * 1024)
         {
-            using (var inStream = new BufferedStream(new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read, 4096)))
+            using (var inStream = new BufferedStream(new FileStream(inputFile, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize)))
             using (var reader = new StreamReader(inStream))
             {
                 var writers = new StreamWriter[numWays];
                 for (int i = 0; i < numWays; i++)
                 {
-                    var fileStream = new FileStream(i.ToString(), FileMode.Create, FileAccess.Write, FileShare.None, 4096);
-                    var bufferedStream = new BufferedStream(fileStream);
+                    var fileStream = new FileStream(i.ToString(), FileMode.Create, FileAccess.Write, FileShare.None, bufferSize);
+                    var bufferedStream = new BufferedStream(fileStream, bufferSize);
                     writers[i] = new StreamWriter(bufferedStream);
                 }
 
@@ -123,7 +124,7 @@ namespace External_Sort
             // Create initial runs from the input file and distribute them to temporary files
             CreateInitialRuns(inputFile, runSize, numWays);
 
-            // Merge the runs using the K-way merging technique
+            // Merge the runs using the K-way merging technique with large buffer size
             MergeFiles(outputFile, numWays);
         }
     }
