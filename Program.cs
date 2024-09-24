@@ -95,12 +95,14 @@ namespace External_Sort
             }
 
             int fileSizeMB = 1024; 
-            long fileSizeBytes = fileSizeMB * 1024 * 1024;
-            int numInts = (int)(fileSizeBytes / 6);
-            int numWays = 10;
+            long fileSizeBytes = fileSizeMB * 1024 * 1024;  
+            long runSize = 100 * 1024 * 1024; 
 
-            // The size of each partition in bytes
-            long runSize = fileSizeBytes / numWays;
+            int numWays = (int)(fileSizeBytes / runSize);
+            if (fileSizeBytes % runSize != 0)
+            {
+                numWays++;
+            }
 
             string inputFile = Path.Combine(Environment.CurrentDirectory, "input.txt");
             string outputFile = Path.Combine(Environment.CurrentDirectory, "output.txt");
@@ -110,10 +112,24 @@ namespace External_Sort
                 using (var writer = new StreamWriter(inputFile))
                 {
                     var rand = new Random();
-                    for (int i = 0; i < numInts; i++)
+                    long currentSize = 0;
+                    const int maxNumber = 10000;
+                    const int minNumber = 100;
+
+                    while (currentSize < fileSizeBytes)
                     {
-                        writer.WriteLine(rand.Next(100, 10000));
+                        int number = rand.Next(minNumber, maxNumber);
+                        string numberString = number.ToString();
+                        long lineSize = System.Text.Encoding.UTF8.GetByteCount(numberString) + Environment.NewLine.Length;
+                        if (currentSize + lineSize > fileSizeBytes)
+                        {
+                            break;
+                        }
+
+                        writer.WriteLine(numberString);
+                        currentSize += lineSize;
                     }
+
                     writer.Flush();
                 }
                 Console.WriteLine("File generated successfully.");
@@ -122,6 +138,7 @@ namespace External_Sort
             {
                 Console.WriteLine($"An error occurred while generating a file: {ex.Message}");
             }
+
 
             ExternalSort.ExternalSortFile(inputFile, outputFile, numWays, runSize);
 
